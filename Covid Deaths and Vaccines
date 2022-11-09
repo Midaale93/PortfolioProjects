@@ -1,0 +1,144 @@
+
+SELECT 
+  Location, date, total_cases, new_cases, total_deaths, population
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` 
+ORDER BY
+  1,2
+
+--Looking at total cases Vs total deaths, shows the likelyhood of dying if you contract Covid in your country
+
+SELECT 
+  Location, date, total_cases, total_deaths,
+  (total_deaths/total_cases)*100 AS DeathPercentage
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` 
+WHERE 
+  location = "United States"
+ORDER BY
+  1,2
+-- shows percentage of population got Covid
+
+SELECT 
+  Location, date, total_cases, population,
+  (total_deaths/population)*100 AS PercentPopInfected
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` 
+WHERE 
+  location = "United States"
+ORDER BY
+  1,2
+
+--Countries with highest infection rate compared to population
+
+SELECT
+  location, population,
+  MAX(total_cases) AS HighestInfectionCount, 
+  MAX((total_cases/population))*100 AS PercentPopInfected
+FROM
+    `myportfolio-363917.CovidDeath.CovidDeaths`
+GROUP BY
+  location,
+  population
+ORDER BY
+  PercentPopInfected desc
+
+--to find max total death count
+SELECT
+  location,
+  MAX(cast(total_deaths as int)) AS TotalDeathCount
+FROM
+    `myportfolio-363917.CovidDeath.CovidDeaths`
+WHERE
+  continent is not null
+GROUP BY
+  location
+ORDER BY
+  TotalDeathCount desc
+
+--breaking it down by continents
+
+SELECT
+  location,
+  MAX(cast(total_deaths as int)) AS TotalDeathCount
+FROM
+    `myportfolio-363917.CovidDeath.CovidDeaths`
+WHERE
+  continent is null 
+GROUP BY
+  location
+ORDER BY
+  TotalDeathCount desc
+
+--Global Numbers
+
+SELECT 
+ date, SUM(new_cases) AS total_cases,SUM(cast(new_deaths as int)) AS total_deaths, SUM(cast(new_deaths as int))/SUM(new_cases)*100 as DeathPercentage
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` 
+WHERE 
+  continent is not null AND total_cases is not null
+GROUP BY
+  date
+ORDER BY
+  1,2
+
+--Total
+
+SELECT 
+ SUM(new_cases) AS total_cases,SUM(cast(new_deaths as int)) AS total_deaths, SUM(cast(new_deaths as int))/SUM(new_cases)*100 as DeathPercentage
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` 
+WHERE 
+  continent is not null AND total_cases is not null
+ORDER BY
+  1,2
+
+-- JOIN TWO TABLES
+SELECT *
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` AS death
+JOIN `myportfolio-363917.CovidDeath.CovidVaccinations` AS vac
+ON death.location = vac.location
+AND death.date = vac.date
+
+--total population Vs Vaccination
+
+SELECT
+death.continent, death.location, death.date, death.population, vac.new_vaccinations
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` AS death
+  JOIN `myportfolio-363917.CovidDeath.CovidVaccinations` AS vac
+    ON death.location = vac.location
+    AND death.date = vac.date
+WHERE
+  death.continent is not null AND vac.new_vaccinations is not null
+ORDER BY
+  2,3
+
+-- Rolling count
+SELECT
+death.continent, death.location, death.date, death.population, vac.new_vaccinations,
+SUM(CAST(vac.new_vaccinations as int)) OVER (PARTITION BY death.location Order by death.location, death.date ) AS RollingPeopleVaccinated
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` AS death
+  JOIN `myportfolio-363917.CovidDeath.CovidVaccinations` AS vac
+    ON death.location = vac.location
+    AND death.date = vac.date
+WHERE
+  death.continent is not null 
+ORDER BY
+  2,3
+
+--USE CTE
+
+WITH PopvsVac (continent, location, date, population, new_vaccinations, RollingPeopleVaccinated) as (
+SELECT
+death.continent, death.location, death.date, death.population, vac.new_vaccinations,
+SUM(cast(vac.new_vaccinations int) OVER (PARTITION BY death.location Order by death.location, death.date) AS RollingPeopleVaccinated
+FROM `myportfolio-363917.CovidDeath.CovidDeaths` death
+  JOIN `myportfolio-363917.CovidDeath.CovidVaccinations` vac
+    ON death.location = vac.location
+    AND death.date = vac.date
+WHERE
+  death.continent is not null 
+)
+
+SELECT *, RollingPeopleVaccinated/population*100
+FROM PopvsVac
+
+
+
+
